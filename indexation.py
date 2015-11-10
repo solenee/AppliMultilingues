@@ -6,6 +6,8 @@
 # separatation : " : "
 #-------------------------------
 
+# nomfichier \t hapax1 ; hapax2 ; hapax3 ... hapaxn (peut etre ;)
+
 import re, sys, os
 import xml.etree.ElementTree as ET
 import codecs
