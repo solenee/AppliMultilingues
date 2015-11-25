@@ -17,7 +17,8 @@ from collections import defaultdict
 d_hapax = {} # dict<en|fr|de, dict<filename, list of hapax> >
 d_hapax["en"] = {}
 d_hapax["fr"] = {}
-d_hapax["subfr"] = {}
+d_hapax["subfr1"] = {}
+d_hapax["subfr2"] = {}
 d_hapax["test"] = {}
 d_hapax["de"] = {}
 
@@ -84,34 +85,43 @@ def normalizedIntersec(x, y) :
 def align(lsrc, ltrgt) :
   """ Write a result file """
   global d_hapax
-  TOP = 5
+  global output_file_name
+  TOP = 20
   # create (filename, [hapaxes]) (separate function)
   print "Loading indexes..."
   loadIndex(d_hapax, lsrc)
   loadIndex(d_hapax, ltrgt)
   print "Done."
   print "Computing similarities..."
-  for file_src in d_hapax[lsrc].keys() :
-    top5 = None #list of the 5 nearest file
-    # compute similarity between hapaxes lists (separate function)
-    # memorize in dictionnary of lists the 5 best ones
+  align_nb = 0 #####
+  with open(output_file_name, "w") as output_f:
+    for file_src in d_hapax[lsrc].keys() :
+      #top20 = None #list of the nearest files
+      # compute similarity between hapaxes lists (separate function)
+      # memorize in dictionnary of lists the 5 best ones
 
-    #1. baseline
-    # list_hapax_source_file, dict<file_name_trgt, list_hapax>, how_many_candidates, similarity_function
-    
-    top5 = findCandidateScores(d_hapax[lsrc][file_src], d_hapax[ltrgt], TOP, intersec) #TODO
-    #print file_src
-    #top5.display()
-    """
-    print file_src
-    for k, v in top5.items():
-      print "___", k, " : ", v
-    """
-  print "DONE"
-   
+      #1. baseline
+      # list_hapax_source_file, dict<file_name_trgt, list_hapax>, how_many_candidates, similarity_function
+      
+      top20 = findCandidateScores(d_hapax[lsrc][file_src], d_hapax[ltrgt], TOP, intersec) #TODO
+      align_nb += top20.nb_align() #####
+      
+      
+      
+      print file_src
+      output_f.write(file_src)
+      output_f.write(" ### ")
+      output_f.write(top20.formatted_output())
+      output_f.write("\n")
+      #print top20.formatted_output()
+      #print top20
+
+    print "Done."
+    print "Average number of alignements : ", align_nb*1./len(d_hapax[lsrc].keys())
+     
    
 def findCandidateScores(l_hpx_src, d_hpx_tgt, top, map_simi):
-  top_n_candidates = Top5()
+  top_n_candidates = Top()
   for f_hpx_tgt, l_hpx_tgt in d_hpx_tgt.iteritems():
     top_n_candidates.stack(f_hpx_tgt, map_simi(l_hpx_src, l_hpx_tgt))
   return top_n_candidates
@@ -130,27 +140,80 @@ def printResult(fil, top) :
   
 #-------------------------------------------
 
-class Top5:
+
+class Top:
 
   def __init__(self):
 	  self.list_len = False # sert à vérifier si la liste de 5 éléments contient bien 5 éléments
-	  self.list5 = []
+	  self.list20 = []
 		
   def stack(self, elem, score):
     if self.list_len:
-      if score > self.list5[4][1]: # if score better than the worst of 5
-        self.list5.append((elem, score))
-        self.list5.sort(key=itemgetter(1), reverse=True)
-        self.list5.pop(5)
+      if score > self.list20[19][1]: # if score better than the worst of 5
+        self.list20.append((elem, score))
+        self.list20.sort(key=itemgetter(1), reverse=True)
+        self.list20.pop(20)
     else:
-      self.list5.append((elem, score))
-      self.list5.sort(key=itemgetter(1), reverse=True)
-      if len(self.list5) >= 5:
+      self.list20.append((elem, score))
+      self.list20.sort(key=itemgetter(1), reverse=True)
+      if len(self.list20) >= 20:
       	self.list_len = True
       	
-  def display(self):
-    for couple in self.list5:
-      print "  ", couple[0], " --- ", couple[1]
+  def __str__(self):
+    str_rep = ""
+    for elem in self.list20:
+      str_rep += "  " + elem[0] + " --- " + str(elem[1]) + "\n"
+    return str_rep
+  
+  def formatted_output(self):
+    str_rep = ""
+    for elem in self.list20:
+      str_rep += elem[0] + " "
+    return str_rep[:-1]
+    
+  def nb_align(self):
+    return len(self.list20)
+     
+"""     
+class Top:
+
+  def __init__(self):
+	  self.list_max = 0
+	  self.list = []
+		
+  def stack(self, elem, score):
+  	if score == self.list_max:
+  		self.list.append(elem)
+  	elif score > self.list_max:
+  		self.list = [elem]
+  		self.list_max = score
+  	
+  def __str__(self):
+    str_rep = ""
+    for elem in self.list:
+      str_rep += "  " + elem + " --- " + str(self.list_max) + "\n"
+    return str_rep
+  
+  def nb_align(self):
+    return len(self.list)
+"""   
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
       
 
 if __name__ == "__main__":
@@ -159,11 +222,13 @@ if __name__ == "__main__":
     forAllFiles("Donnees/FR/fr", "Donnees/extracted/index.fr")
     forAllFiles("Donnees/EN/en", "Donnees/extracted/index.en")
     forAllFiles("Donnees/DE/de", "Donnees/extracted/index.de")
-  else :
-    #align fr-de
-    align("subfr", "subfr")
-    #align fr-en align("fr", "en")
-    #align de-en align("de", "en")
+  
+  output_file_name = "top20_fr-en.txt"
+  if len(sys.argv) == 4:
+    output_file_name = sys.argv[3]
+
+  align("subfr1", "subfr2")
+
     
   
   
